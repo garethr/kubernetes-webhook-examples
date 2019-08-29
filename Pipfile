@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flask = "*"
+gunicorn = "*"
+jsonpatch = "*"
+
+[dev-packages]
+pytest-black = "*"
+pytest-flask = "*"
+pytest-isort = "*"
+pytest-cov = "*"
+invoke = "*"
