@@ -6,34 +6,34 @@ metadata:
 kind: Service
 apiVersion: v1
 metadata:
-  name: webhook
-  namespace: webhook
+  name: feature-webhook
+  namespace: feature-operator
 spec:
   selector:
-    app: webhook
+    app: feature-webhook
   ports:
-  - name: https
-    protocol: TCP
-    port: 443
-    targetPort: 443
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: webhook
-  namespace: webhook
-  name: webhook
+    app: feature-webhook
+  namespace: feature-operator
+  name: feature-webhook
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: webhook
+      app: feature-webhook
   template:
     metadata:
       labels:
-        app: webhook
-      name: webhook
+        app: feature-webhook
+      name: feature-webhook
     spec:
       containers:
         - name: webhook
@@ -47,7 +47,7 @@ spec:
           volumeMounts:
             - readOnly: true
               mountPath: /certs
-              name: webhook-certs
+              name: webhook-cert
           readinessProbe:
             httpGet:
               path: /health
@@ -61,8 +61,7 @@ spec:
               scheme: HTTPS
               port: 443
             initialDelaySeconds: 3
-            periodSeconds:
       volumes:
-        - name: webhook-certs
+        - name: webhook-cert
           secret:
-            secretName: webhook-certs
+            secretName: webhook-cert

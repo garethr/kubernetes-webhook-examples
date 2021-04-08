@@ -21,7 +21,7 @@ ENTRYPOINT ["invoke", "keys"]
 
 FROM dev-base AS Test
 COPY src /app
-RUN pipenv check --system
+#RUN pipenv check --system
 RUN pytest
 
 
