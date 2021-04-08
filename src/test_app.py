@@ -1,13 +1,22 @@
 import pytest
+import json
+import base64
 from flask import url_for
 
 
 def allowed(response):
-    return response.status_code == 200 and response.json["response"]["allowed"] == True
+    return response.status_code == 200 and response.json["response"]["allowed"] is True
 
 
 def valid(response):
     return {"uid", "allowed"} <= response.json["response"].keys()
+
+def getPatch(response):
+    return base64.b64decode(response.json["response"]["patch"])
+
+# def containsSearchResult(response):
+#     getPatch(response)
+#     return patch == 'xyz'
 
 
 class TestHeathcheck(object):
@@ -71,14 +80,40 @@ class TestMutate(object):
     def test_invalid_http_method(self, client, url):
         assert client.get(url).status_code == 405
 
-    def test_mutate_with_no_data(self, client, url):
-        data = {"request": {"uid": 1, "object": {}}}
-        response = client.post(url, json=data)
-        assert response.content_type == "application/json"
-        assert valid(response)
-
-    def test_mutate_with_data(self, client, url):
-        data = {"request": {"uid": 1, "object": {"metadata": {"labels": {}}}}}
+    def test_mutate_with_no_dns_config(self, client, url):
+        data = {"request": {"uid": 1, "object": {"metadata": {"labels": {}}, "spec": {}}}}
         response = client.post(url, json=data)
         assert valid(response)
         assert response.json["response"]["patch"]
+
+        patch = json.loads(getPatch(response))
+
+        assert patch[0]["op"] == "add"
+        assert patch[0]["path"] == "/spec/dnsConfig"
+        assert patch[0]["value"] == {'searches': ['ah.svc.cluster.local']}
+
+    def test_mutate_with_no_dns_searches(self, client, url):
+        data = {"request": {"uid": 1, "object": {"metadata": {"labels": {}}, "spec": {"dnsConfig": {}}}}}
+
+        response = client.post(url, json=data)
+
+        assert valid(response)
+        assert response.json["response"]["patch"]
+
+        patch = json.loads(getPatch(response))
+
+        assert patch[0]["op"] == "add"
+        assert patch[0]["path"] == "/spec/dnsConfig/searches"
+        assert patch[0]["value"] == ['ah.svc.cluster.local']
+
+    def test_mutate_with_existing_dns_searches(self, client, url):
+        data = {"request": {"uid": 1, "object": {"metadata": {"labels": {}}, "spec": {"dnsConfig": {"searches": ['ecom.ahold.nl']}}}}}
+        response = client.post(url, json=data)
+        assert valid(response)
+        assert response.json["response"]["patch"]
+
+        patch = json.loads(getPatch(response))
+
+        assert patch[0]["op"] == "add"
+        assert patch[0]["path"] == "/spec/dnsConfig/searches/1"
+        assert patch[0]["value"] == 'ah.svc.cluster.local'

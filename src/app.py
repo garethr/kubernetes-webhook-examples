@@ -11,43 +11,34 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
-@app.route("/validate", methods=["POST"])
-def validate():
-    app.logger.info('on validate')
-    allowed = True
-    try:
-        for container_spec in request.json["request"]["object"]["spec"]["containers"]:
-            if "env" in container_spec:
-                allowed = False
-    except KeyError as e:
-        app.logger.warning('Validate got KeyError %s', str(e))
-
-    return jsonify(
-        {
-            "response": {
-                "allowed": allowed,
-                "uid": request.json["request"]["uid"],
-                "status": {"message": "env keys are prohibited"},
-            }
-        }
-    )
-
-
 @app.route("/mutate", methods=["POST"])
 def mutate():
-    app.logger.info('on mutate')
-    spec = request.json["request"]["object"]
-    app.logger.info('mutating spec %s', str(spec))
-    modified_spec = copy.deepcopy(spec)
+    app.logger.debug('on mutate')
+    original_object = request.json["request"]["object"]
+    modified_object = copy.deepcopy(original_object)
+    original_spec = original_object["spec"]
+    spec = modified_object["spec"]
+
+    app.logger.debug('mutating spec %s', str(spec))
 
     try:
-        modified_spec["metadata"]["labels"]["example.com/new-label"] = str(
-            random.randint(1, 1000)
-        )
+        if 'dnsConfig' not in spec:
+            spec['dnsConfig'] = {'searches': []}
+            app.logger.debug('added dnsConfig %s', str(spec))
+
+        dns_config = spec['dnsConfig']
+        app.logger.debug('dns config %s', str(dns_config))
+
+        if 'searches' not in dns_config:
+            dns_config['searches'] = []
+
+        searches = dns_config['searches']
+        searches += ['ah.svc.cluster.local']
+
     except KeyError as e:
         app.logger.warning('Mutate got KeyError %s', str(e))
 
-    patch = jsonpatch.JsonPatch.from_diff(spec, modified_spec)
+    patch = jsonpatch.JsonPatch.from_diff(original_object, modified_object)
     response = {
         "apiVersion": "admission.k8s.io/v1",
         "kind": "AdmissionReview",
@@ -58,18 +49,13 @@ def mutate():
             "patchType": "JSONPatch",
         }
     }
-    app.logger.info('Mutate returning response %s', str(jsonify(response)))
+    app.logger.debug('Mutate returning response %s', str(response))
     return jsonify(response)
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    app.logger.info('/health')
     return ("", http.HTTPStatus.NO_CONTENT)
-
-
-# if __name__ == "app": # gunicorn
-#     app.run(host="0.0.0.0", debug=True, port=8000)  # pragma: no cover
 
 if __name__ == "__main__": # development
     app.run(host="0.0.0.0", debug=True)  # pragma: no cover
