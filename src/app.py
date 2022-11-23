@@ -44,6 +44,8 @@ def mutate():
     patch = jsonpatch.JsonPatch.from_diff(spec, modified_spec)
     return jsonify(
         {
+            "apiVersion": "admission.k8s.io/v1",
+            "kind": "AdmissionReview",
             "response": {
                 "allowed": True,
                 "uid": request.json["request"]["uid"],
